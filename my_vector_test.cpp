@@ -101,6 +101,12 @@ TEST(MyVectorTest, Construction) {
    EXPECT_EQ(vec5[0], "a");
    EXPECT_EQ(vec5[1], "b");
    EXPECT_EQ(vec5[2], "c");
+
+   my_vector<my_vector<std::string>> container { {"hello", "world"}, {"quick", "brown", "fox"}, {"jumps", "over"} };
+   EXPECT_EQ(container.size(), 3);
+   EXPECT_EQ(container[0], (my_vector<std::string>{"hello", "world"}));
+   EXPECT_EQ(container[1], (my_vector<std::string>{"quick", "brown", "fox"}));
+   EXPECT_EQ(container[2], (my_vector<std::string>{"jumps", "over"}));
 }
 
 TEST(MyVectorTest, ConstructionFromRange) {

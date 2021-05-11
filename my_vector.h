@@ -4,6 +4,7 @@
 #include <utility>
 #include <iterator>
 #include <initializer_list>
+#include <cstring>
 #include <cstddef>
 #include <stdexcept>
 
@@ -47,7 +48,7 @@ public:
     }
 
     my_vector(const my_vector& rhs) {
-        grow_and_copy_from(rhs.capacity(), rhs);
+        grow_and_copy_from<T>(rhs.capacity(), rhs);
     }
 
     my_vector(iterator begin, iterator end) {
@@ -96,7 +97,7 @@ public:
 
     void reserve(size_t new_cap) {
         if (new_cap > m_capacity) {
-            grow_and_copy_from(new_cap, *this);
+            grow_and_copy_from<T>(new_cap, *this);
         }
     }
 
@@ -120,7 +121,7 @@ public:
 
     void push_back (const T& rhs) {
         if (m_size == m_capacity) {
-            grow_and_copy_from((m_size + 1) * CapacityFactor, *this);
+            grow_and_copy_from<T>((m_size + 1) * CapacityFactor, *this);
         }
         new (m_buffer_p + m_size) T {rhs};
         m_size++;
@@ -128,7 +129,7 @@ public:
 
     void push_back (T&& rhs) {
         if (m_size == m_capacity) {
-            grow_and_copy_from((m_size + 1) * CapacityFactor, *this);
+            grow_and_copy_from<T>((m_size + 1) * CapacityFactor, *this);
         }
         new (m_buffer_p + m_size) T{ std::move(rhs) };
         m_size++;
@@ -140,7 +141,7 @@ public:
     template< class... Args >
     void emplace_back( Args&&... args ) {
         if (m_size == m_capacity) {
-            grow_and_copy_from((m_size + 1) * CapacityFactor, *this);
+            grow_and_copy_from<T>((m_size + 1) * CapacityFactor, *this);
         }
         new (m_buffer_p + m_size) T{ std::forward<Args>(args)... };
         m_size++;
@@ -203,7 +204,7 @@ public:
     // It is a non-binding request to reduce capacity() to size(). It depends on the implementation whether the request is fulfilled.
     // If reallocation occurs, all iterators, including the past the end iterator, and all references to the elements are invalidated. If no reallocation takes place, no iterators or references are invalidated.
     void shrink_to_fit() {
-        grow_and_copy_from(m_size, *this);
+        grow_and_copy_from<T>(m_size, *this);
     }
 
     //inserts value before pos
@@ -214,7 +215,7 @@ public:
         }
         auto ipos = pos - cbegin();
         if (m_size == m_capacity)
-            grow_and_copy_from((m_size + 1) * CapacityFactor, *this);
+            grow_and_copy_from<T>((m_size + 1) * CapacityFactor, *this);
 
         auto curr = end();
         while ((curr - begin()) != ipos) {
@@ -232,7 +233,7 @@ public:
         auto count = std::distance(first, last);
         if (pos == cend()) {
             if (m_size + count > m_capacity)
-                grow_and_copy_from((m_size + count) * CapacityFactor, *this);
+                grow_and_copy_from<T>((m_size + count) * CapacityFactor, *this);
             auto rit = end();
             while (first != last) {
                 push_back(*first++);
@@ -242,7 +243,7 @@ public:
 
         auto ipos = pos - begin();
         if (m_size + count > m_capacity)
-            grow_and_copy_from((m_size + count) * CapacityFactor, *this);
+            grow_and_copy_from<T>((m_size + count) * CapacityFactor, *this);
         pos = begin() + ipos;
         auto cur = end() - 1;
         while (cur != pos-1) {
@@ -386,18 +387,31 @@ private:
         ::operator delete (m_buffer_p);
     }
 
+    // Specialization for PODs
+    template <class Typ, std::enable_if_t<std::is_pod<Typ>::value, int> = 0>
     void grow_and_copy_from (size_t new_cap, const my_vector& source) {
-        auto rawbuff_p = ::operator new (new_cap * sizeof(T));
+        auto rawbuff_p = ::operator new (new_cap * sizeof(Typ));
+        std::memcpy(rawbuff_p, source.m_buffer_p, source.m_size * sizeof(Typ) );
+        ::operator delete (m_buffer_p);
+        m_buffer_p = static_cast<T*>(rawbuff_p);
+        m_capacity = new_cap;
+        m_size = source.m_size;
+    }
+
+    // Specialization for NON PODs
+    template <class Typ, std::enable_if_t<! std::is_pod<Typ>::value, int> = 0>
+    void grow_and_copy_from (size_t new_cap, const my_vector& source) {
+        auto rawbuff_p = ::operator new (new_cap * sizeof(Typ));
         auto new_size = source.m_size;
         if (this == &source) {
             // Moving elements when reallocating itself
             for (int i=0; i<source.m_size; ++i) {
-                new (static_cast<char*>(rawbuff_p) + i*sizeof(T)) T { std::move(source.m_buffer_p[i]) };
+                new (static_cast<char*>(rawbuff_p) + i*sizeof(Typ)) Typ { std::move(source.m_buffer_p[i]) };
             }
             ::operator delete (m_buffer_p);
         } else {
             for (int i=0; i<source.m_size; ++i) {
-                new (static_cast<char*>(rawbuff_p) + i*sizeof(T)) T {source.m_buffer_p[i]};
+                new (static_cast<char*>(rawbuff_p) + i*sizeof(Typ)) Typ {source.m_buffer_p[i]};
             }
             // destroy this container by calling destructors
             destroy();
