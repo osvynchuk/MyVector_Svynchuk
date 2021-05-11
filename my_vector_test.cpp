@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <numeric>
 #include <vector>
 #include <list>
 
@@ -844,4 +845,21 @@ TEST(MyVectorTest, Compare3) {
     std::cout << "alice <= eve returns " << (alice <= eve) << '\n';
     std::cout << "alice >  eve returns " << (alice > eve) << '\n';
     std::cout << "alice >= eve returns " << (alice >= eve) << '\n';
+}
+
+TEST(MyVectorTest, Algorithms) {
+    std::vector<int> from_vector(10);
+    std::iota(from_vector.begin(), from_vector.end(), 0);
+
+    my_vector<int> to_vector;
+    std::copy(from_vector.begin(), from_vector.end(), std::back_inserter(to_vector));
+
+    std::cout << to_vector << std::endl;
+
+    my_vector<Foo> vec {2,3,4};
+    my_vector<Foo> to_foovec {0,0,0, 999};
+
+    std::cout << "Before copy: " << to_foovec << std::endl;
+    std::copy(vec.begin(), vec.end(), to_foovec.begin());
+    std::cout << "After copy: " << to_foovec << std::endl;
 }
